@@ -41,8 +41,7 @@ int main()
 	serverAddr.sin_port = htons(SERVER_PORT);
 	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	bzero(&(serverAddr.sin_zero), 8);
-	if(bind(listenfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1)
-	{
+	if(bind(listenfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
 		printf("bind() failed! code:%d\n", errno);
 		close(listenfd);
 		return -1;

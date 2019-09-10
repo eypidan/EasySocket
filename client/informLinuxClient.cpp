@@ -13,8 +13,9 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#define SERVER_PORT	6666 //侦听端口
+#include <netdb.h>   
+//10.79.25.117 
+#define SERVER_PORT	5750 //侦听端口
 
 extern int errno;
 
@@ -30,7 +31,9 @@ int main(int argc, char *argv[])
 	int sockfd;
 	struct sockaddr_in serverAddr;
 	struct student stu;
-	
+	struct hostent *hptr;  
+	char *ptr;
+
 	if(argc != 4)
 	{
 		printf("usage: informLinuxClient serverIP name age\n");
@@ -43,17 +46,22 @@ int main(int argc, char *argv[])
 		printf("socket() failed! code:%d\n", errno);
 		return -1;
 	}
-		
+	
+	ptr = argv[1];
 	// 设置服务器的地址信息：
+	if((hptr = gethostbyname(ptr)) == NULL){
+		printf("Geting error in gethostbyname func!\n");
+		return 0;
+	}
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(SERVER_PORT);
-	serverAddr.sin_addr.s_addr = inet_addr(argv[1]);
+	//serverAddr.sin_addr.s_addr = inet_addr(argv[1]);
+	memcpy(&serverAddr.sin_addr, hptr->h_addr, hptr->h_length);
 	bzero(&(serverAddr.sin_zero), 8);
-		
+	printf("set sucessfully.\nIP:%d\nserver address:%s\n",SERVER_PORT,argv[1]);
 	//客户端发出连接请求：
-	printf("connecting!\n");
-	if(connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1)
-	{
+	printf("connecting....\n");
+	if(connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
 		printf("connect() failed! code:%d\n", errno);
 		close(sockfd);
 		return -1;
