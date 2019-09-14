@@ -28,7 +28,8 @@ int main(int argc, char *argv[])
 	struct student stu;
 	struct hostent *hptr;  
 	char *ptr;
-
+    char message[100] , timeMessage[100] , nameMessage[100];
+    char *helloptr , *timePtr, *namePtr;
 	if(argc != 4)
 	{
 		printf("usage: informLinuxClient serverIP name age\n");
@@ -74,6 +75,13 @@ int main(int argc, char *argv[])
 	}
 
 	printf("student info has been sent!\n");
+    //get hello info from server
+    if(recv(sockfd , message , 100 , 0) <= 0) {
+        printf("recv() failed!\n");
+        close(sockfd);
+        return -1;
+    }
+    printf("info from sever:%s\n",message);
 	close(sockfd);//关闭套接字
 	return 0;
 }

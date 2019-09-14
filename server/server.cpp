@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <pthread.h> 
 #include <vector>
+#include <string>
 #define SERVER_PORT	5750 //listen port
 #define CLIENT_NUM 100
 using namespace std;
@@ -100,7 +101,11 @@ int main() {
 			return -1;
 		}
 		printf("Accepted client: %s:%d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
-		pthread_create(thread_id+i ,NULL ,createNewThread ,(void *)&connfd);
+		if(pthread_create(thread_id+i ,NULL ,createNewThread ,(void *)&connfd)) {
+			printf("pthread_create failed! code:%d\n", errno);
+			close(listenfd);
+			return -1;
+		}
 		i++;
 	}
 	close(listenfd);//¹Ø±ÕÌ×½Ó×Ö
@@ -118,8 +123,9 @@ void *createNewThread(void *socketfd){
 	void *ptr;
 	client *client_ptr;
 	int socketid = *socketid_ptr;
+	char messageHello[] = "Hello! We are connected!\n";
+
 	printf("New thread is created");
-	
 	client_ptr = new client;
 	client_ptr->fd = socketid;
 	client_ptr->setRetval();
@@ -143,5 +149,10 @@ void *createNewThread(void *socketfd){
 	
 	printf("name: %s\nage:%d\n", stu.name, stu.age);
 	printf("Socketid is %d\n",socketid);
+	if(send(socketid , messageHello , strlen(messageHello) , 0) == -1){
+		printf("send() failed!\n");
+		close(socketid);
+		exit(-1);
+	}
 	//close(socketid);
 }
