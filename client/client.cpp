@@ -15,8 +15,7 @@
 extern int errno;
 
 //客户端向服务器传送的结构：
-struct student
-{
+struct student {
 	char name[32];
 	int age;
 };
@@ -29,9 +28,8 @@ int main(int argc, char *argv[])
 	struct hostent *hptr;  
 	char *ptr;
     char message[100] , timeMessage[100] , nameMessage[100];
-    char *helloptr , *timePtr, *namePtr;
-	if(argc != 4)
-	{
+    // char *helloptr , *timePtr, *namePtr;
+	if(argc != 4) {
 		printf("usage: informLinuxClient serverIP name age\n");
 		return -1;
 	}
@@ -62,26 +60,25 @@ int main(int argc, char *argv[])
 		close(sockfd);
 		return -1;
 	}
-
 	printf("Connected!\n");
 	
-	strcpy(stu.name, argv[2]);
-	stu.age = atoi(argv[3]);
-	if(send(sockfd, (char *)&stu, sizeof(stu), 0) == -1)
-	{
-		printf("send() failed!\n");
-		close(sockfd);
-		return -1;
-	}
+	// strcpy(stu.name, argv[2]);
+	// stu.age = atoi(argv[3]);
+	// if(send(sockfd, (char *)&stu, sizeof(stu), 0) == -1)
+	// {
+	// 	printf("send() failed!\n");
+	// 	close(sockfd);
+	// 	return -1;
+	// }
 
-	printf("student info has been sent!\n");
+	// printf("student info has been sent!\n");
     //get hello info from server
     if(recv(sockfd , message , 100 , 0) <= 0) {
         printf("recv() failed!\n");
         close(sockfd);
         return -1;
     }
-    printf("info from sever:%s\n",message);
+    printf("info from sever:%s\n" , message);
 	close(sockfd);//关闭套接字
 	return 0;
 }
