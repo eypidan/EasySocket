@@ -70,21 +70,24 @@ private:
 //thread function to create a new thread accept next request
 void *createNewThread(void *vargp);
 void sendClientList(int socketid);
+json merge(const json &a, const json &b);
 
 pthread_t thread_id[CLIENT_NUM];
 vector<client> clientList;
 
-// namespace ns{
-// 	void to_json(json& j, const client& c) {
-//         j = json{{"client_fd", c.fd}, {"ip", p.address}, {"client_port", p.age}};
-//     }
 
-//     void from_json(const json& j, client& p) {
-//         j.at("name").get_to(p.name);
-//         j.at("address").get_to(p.address);
-//         j.at("age").get_to(p.age);
-//     }
-// }
+
+namespace ns{
+	void to_json(json& j, const client& c) {
+        j = json{{"client_fd", c.fd}, {"client_ip", c.ip}, {"client_port", c.port}};
+    }
+
+    void from_json(const json& j, client& c) {
+        j.at("client_fd").get_to(c.fd);
+        j.at("client_ip").get_to(c.ip);
+        j.at("client_port").get_to(c.port);
+    }
+}
 
 int main() {	
 
@@ -149,19 +152,14 @@ int main() {
 }
 
 void *createNewThread(void *socketfd){
-	
-
 	int ret;
 	int *socketid_ptr = (int *)socketfd;
 	void *ptr;
 	
 	int socketid = *socketid_ptr;
-	char messageHello[] = "Hello! We are connected!\n";
+	char messageHello[] = "Hello! We are connected!";
 
-	printf("New thread is created\n");
-
-
-	
+	printf("New thread is created\n");	
 	//接收客户端的数据：		
 	// int nLeft = sizeof(stu);
 	// ptr = &stu;
@@ -187,20 +185,28 @@ void *createNewThread(void *socketfd){
 	}
 	sendClientList(socketid);
 	//close(socketid);
+	
 }
 
 void sendClientList(int socketid){
-	json currentList;
-	
+	json currentList = json::object();
+	json clientNode,middleNode;
 	for(vector <client>::iterator iter = clientList.begin();iter != clientList.end();++iter){
-
+		ns::to_json(clientNode,*iter);
+		middleNode = json{{to_string(clientNode["client_fd"]),clientNode}};
+		currentList = merge(currentList,middleNode);
+		cout << currentList.dump()<< endl;
 	}
-	
-	currentList["pi"] = 3.14;
-	std::cout << currentList.dump() << std::endl;
-	// if(send(socketid , messageHello , strlen(messageHello) , 0) == -1){
-	// 	printf("send() failed!\n");
-	// 	close(socketid);
-	// 	exit(-1);
-	// }
+}
+
+json merge( const json &a, const json &b ) {
+    json result = a;
+    json tmp = b;
+	cout << "debug:" << result.dump() <<endl;
+    for ( auto it = tmp.begin(); it != tmp.end(); ++it ){
+		// cout << "debug:" <<it.key()<<endl;
+		result[it.key()] = it.value();
+	}
+        
+    return result;
 }
