@@ -1,3 +1,11 @@
+/*
+	statusCode:
+	666 -> hello
+	200 -> get time
+	201 -> get name
+	203 -> get client list
+	403 -> bad request
+*/
 //a easy socket sever
 #include <stdio.h>
 #include <iostream>
@@ -13,13 +21,18 @@
 #include <pthread.h> 
 #include <vector>
 #include <string>
-#include "./include/json.hpp"
 
-using json = nlohmann::json;
 #define SERVER_PORT	5750 //listen port
 #define CLIENT_NUM 100
+#define BUFFERSIZE 2000
 using namespace std;
 extern int errno;
+
+//data packet
+struct dataPacket{
+	char content[BUFFERSIZE];
+	int statusCode;
+};
 
 //client list struct
 class client{
@@ -70,24 +83,11 @@ private:
 //thread function to create a new thread accept next request
 void *createNewThread(void *vargp);
 void sendClientList(int socketid);
-json merge(const json &a, const json &b);
+
 
 pthread_t thread_id[CLIENT_NUM];
 vector<client> clientList;
 
-
-
-namespace ns{
-	void to_json(json& j, const client& c) {
-        j = json{{"client_fd", c.fd}, {"client_ip", c.ip}, {"client_port", c.port}};
-    }
-
-    void from_json(const json& j, client& c) {
-        j.at("client_fd").get_to(c.fd);
-        j.at("client_ip").get_to(c.ip);
-        j.at("client_port").get_to(c.port);
-    }
-}
 
 int main() {	
 
@@ -96,8 +96,7 @@ int main() {
 	struct sockaddr_in serverAddr;
 	struct sockaddr_in  clientAddr;
 	//create a socket:
-	if((listenfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-	{
+	if((listenfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		printf("socket() failed! code:%d\n", errno);
 		return -1;
 	}
@@ -155,58 +154,24 @@ void *createNewThread(void *socketfd){
 	int ret;
 	int *socketid_ptr = (int *)socketfd;
 	void *ptr;
-	
 	int socketid = *socketid_ptr;
-	char messageHello[] = "Hello! We are connected!";
+	struct dataPacket helloPac;
+	helloPac.statusCode = 666;
+	strcpy(helloPac.content,"Hello! We are connected!");
 
 	printf("New thread is created\n");	
-	//接收客户端的数据：		
-	// int nLeft = sizeof(stu);
-	// ptr = &stu;
-	// while(nLeft >0)	{
-	// 	//接收数据：
-	// 	ret = recv(socketid, ptr, nLeft, 0);
-	// 	if(ret <= 0) {
-	// 		printf("recv() failed!\n");
-	// 		close(socketid);
-	// 		exit(-1);
-	// 	}
-	
-	// 	nLeft -= ret;
-	// 	ptr = (char *)ptr + ret;
-	// }
-	
-	// printf("name: %s\nage:%d\n", stu.name, stu.age);
 	printf("Socketid is %d\n",socketid);
-	if(send(socketid , messageHello , strlen(messageHello) , 0) == -1){
+	if(send(socketid , &helloPac , sizeof(dataPacket) , 0) == -1) {
 		printf("send() failed!\n");
 		close(socketid);
 		exit(-1);
 	}
-	sendClientList(socketid);
-	//close(socketid);
 	
+	
+	//close(socketid);	
 }
 
 void sendClientList(int socketid){
-	json currentList = json::object();
-	json clientNode,middleNode;
-	for(vector <client>::iterator iter = clientList.begin();iter != clientList.end();++iter){
-		ns::to_json(clientNode,*iter);
-		middleNode = json{{to_string(clientNode["client_fd"]),clientNode}};
-		currentList = merge(currentList,middleNode);
-		cout << currentList.dump()<< endl;
-	}
+	
 }
 
-json merge( const json &a, const json &b ) {
-    json result = a;
-    json tmp = b;
-	cout << "debug:" << result.dump() <<endl;
-    for ( auto it = tmp.begin(); it != tmp.end(); ++it ){
-		// cout << "debug:" <<it.key()<<endl;
-		result[it.key()] = it.value();
-	}
-        
-    return result;
-}
