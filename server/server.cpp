@@ -146,9 +146,8 @@ int main() {
 		}
 		i++;
 	}
-	close(listenfd);//关闭套接字
 
-	
+	close(listenfd);//关闭套接字
 	return 0;
 }
 
@@ -163,9 +162,9 @@ void *createNewThread(void *socketfd){
 	printf("New thread is created\n");	
 	printf("Socketid is %d\n",socketid);
 	if(send(socketid , &dataSendToClient , sizeof(dataPacket) , 0) == -1) {
-		printf("send() failed!\n");
+		printf("In phtread send() failed!\n");
 		close(socketid);
-		exit(-1);
+		pthread_exit(NULL);
 	}
 
 	//start to recv packet from client
@@ -212,9 +211,9 @@ void *createNewThread(void *socketfd){
 			break;
 		}
 		if(send(socketid, &dataSendToClient,sizeof(dataPacket),0) == -1){
-			printf("send() failed!\n");
+			printf("in pthread send() failed!\n");
 			close(socketid);
-			exit(-1);
+			pthread_exit(NULL);
 		}
 		printf("debug:%s\n",dataSendToClient.content);
 	}
