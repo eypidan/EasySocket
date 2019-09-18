@@ -81,28 +81,25 @@ private:
 
 };
 
-
 //thread function to create a new thread accept next request
 void *createNewThread(void *vargp);
 void sendClientList(int socketid);
 
 
-pthread_t thread_id[CLIENT_NUM];
 vector<client> clientList;
-
 
 int main() {	
 
-	int listenfd, connfd, i;
+	int listenfd, connfd, i, *newsock;
 	int iClientSize;
 	struct sockaddr_in serverAddr;
-	struct sockaddr_in  clientAddr;
+	struct sockaddr_in  clientAddr[CLIENT_NUM];
 	//create a socket:
 	if((listenfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		printf("socket() failed! code:%d\n", errno);
 		return -1;
 	}
-		
+	
 	//bind:
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(SERVER_PORT);
@@ -115,7 +112,7 @@ int main() {
 	}
 		
 	// 侦听控制连接请求：
-	if(listen(listenfd, CLIENT_NUM) == -1) {
+	if(listen(listenfd, 100) == -1) {
 		printf("listen() failed! code:%d\n", errno);
 		close(listenfd);
 		return -1;
@@ -127,24 +124,27 @@ int main() {
 	//接受客户端连接请求：
 	i = 0;
 	while(i < 100){
-		if((connfd = accept(listenfd, (struct sockaddr *)&clientAddr,(socklen_t *) &iClientSize)) == -1) {
+		pthread_t thread_id;
+		newsock = new int;
+		if((connfd = accept(listenfd, (struct sockaddr *)(clientAddr+i),(socklen_t *) &iClientSize)) == -1) {
 			printf("accept() failed! code:%d\n", errno);
 			close(listenfd);
 			return -1;
 		}
-		printf("Accepted client: %s:%d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
-
+		*newsock = connfd;
+		printf("Accepted client: %s:%d\n", inet_ntoa(clientAddr[i].sin_addr), ntohs(clientAddr[i].sin_port));
 		client *client_ptr;
-		client_ptr = new client(connfd, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
+		client_ptr = new client(connfd, inet_ntoa(clientAddr[i].sin_addr), ntohs(clientAddr[i].sin_port));
 		client_ptr->setRetval();
 		clientList.push_back(*client_ptr);
 
-		if(pthread_create(thread_id+i ,NULL ,createNewThread ,(void *)&connfd)) {
+
+		if(pthread_create(&thread_id , NULL , createNewThread ,(void *)newsock)) {
 			printf("pthread_create failed! code:%d\n", errno);
 			close(listenfd);
 			return -1;
 		}
-		i++;
+		++i;
 	}
 
 	close(listenfd);//关闭套接字
