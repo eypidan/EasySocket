@@ -21,6 +21,7 @@
 #include <sys/msg.h>
 #include <unistd.h>
 #include <netdb.h> 
+
 //10.79.25.117 
 #define SERVER_PORT	5750 //侦听端口
 #define QUEUEKEY 8888
@@ -47,6 +48,8 @@ void sendTimeReq(void *sockid);
 void sendNameReq(void *sockid);
 
 int main() {	
+	
+	
 	int sockfd,funcChoose = 0;
 	int msgidRecv = -1;
 	struct sockaddr_in serverAddr;
@@ -60,8 +63,8 @@ int main() {
 		printf("msgget failed with error: %d\n", errno);
 		exit(1);
 	}
-	//create a socket：
-	
+	//clean the former message queue
+	// msgctl(msgidRecv, IPC_RMID, NULL);
 
 	while(1){
 		getMessage = false;
@@ -124,13 +127,17 @@ int main() {
 		}
 
 		//start to recv info from thread
-	
-		if(msgrcv(msgidRecv, (void*)&dataRecv, sizeof(msg_st)-sizeof(long int), 0, MSG_NOERROR) == -1) {
+
+		if(msgrcv(msgidRecv, (void*)&dataRecv, sizeof(msg_st)-sizeof(long int), 1, 0) == -1) {
 			printf("msgrcv failed with errno: %d\n", errno);
 			exit(1);
 		}
-		getMessage = true;
-		printf("In main:%s %d\n",dataRecv.content,dataRecv.statusCode);
+		printf("In MainThread:%s %d\n" , dataRecv.content , dataRecv.statusCode);
+		printf("input 'c' to Continue");
+		char q = 'a';
+		while(q !='c')
+			scanf("%c",&q);
+		
 	}
 
 	return 0;
@@ -145,19 +152,19 @@ void *recvInfoThread(void *sockid){
 	dataPacket dataGetFromServer;
 	msg_st dataSendToMainThread;
 	msgidSend = msgget((key_t)QUEUEKEY, 0666 | IPC_CREAT);
+	
 	if(msgidSend == -1){
 		printf("msgget failed with error: %d\n", errno);
 		exit(1);
 	}
 	while(connectStatus){
+		//int running = 1;
 		//接收客户端的数据：		
 		int nLeft = sizeof(dataPacket);
-
 		ptr = &dataGetFromServer;
 		while(nLeft >0)	{
 			//接收数据：
 			ret = recv(sofd, ptr, nLeft, 0);
-			//printf("debug,if not recv hang you will see me\n");
 			if(ret <= 0) {
 				printf("recv() failed!\n");
 				close(sofd);
@@ -165,21 +172,24 @@ void *recvInfoThread(void *sockid){
 			}
 			nLeft -= ret;
 			ptr = (char *)ptr + ret;
-			//printf("degbug :nLeft %d\n",nLeft);
 		}
-		printf("debug in client:%s\n",dataGetFromServer.content);
-		while(1){
+
+		// while(running){
 			//set data
-			strcpy(dataSendToMainThread.content,dataGetFromServer.content);
-			dataSendToMainThread.statusCode = dataGetFromServer.statusCode;
-			dataSendToMainThread.msg_type = 1;
-			//send message to main thread
-			if((msgsnd(msgidSend,(void*)&dataSendToMainThread,sizeof(msg_st)-sizeof(long int),0)) == -1){
-				printf("msgsnd failed!\n");
-				exit(1);
-			}
-			if(getMessage == true) break;
+		strcpy(dataSendToMainThread.content,dataGetFromServer.content);
+		dataSendToMainThread.statusCode = dataGetFromServer.statusCode;
+		dataSendToMainThread.msg_type = 1;
+		//send message to main thread
+		if((msgsnd(msgidSend,(void*)&dataSendToMainThread,sizeof(msg_st)-sizeof(long int),0)) == -1){
+			printf("msgsnd failed!\n");
+			exit(1);
 		}
+		// 	if(getMessage == true)	{
+		// 		printf("\nrecv from server:%s\n",dataGetFromServer.content);
+		// 		printf("\nsendtoMain:%s\n",dataSendToMainThread.content);
+		// 		running = 0;
+		// 	}
+		// }
 	}
 }
 

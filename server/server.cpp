@@ -23,7 +23,7 @@
 #include <string>
 #include <time.h>
 #include <limits.h>
-
+#include <memory>
 #define SERVER_PORT	5750 //listen port
 #define CLIENT_NUM 100
 #define BUFFERSIZE 2000
@@ -86,7 +86,7 @@ void *createNewThread(void *vargp);
 void sendClientList(int socketid);
 
 
-vector<client> clientList;
+vector<shared_ptr<client>> clientList;
 
 int main() {	
 
@@ -133,10 +133,10 @@ int main() {
 		}
 		*newsock = connfd;
 		printf("Accepted client: %s:%d\n", inet_ntoa(clientAddr[i].sin_addr), ntohs(clientAddr[i].sin_port));
-		client *client_ptr;
-		client_ptr = new client(connfd, inet_ntoa(clientAddr[i].sin_addr), ntohs(clientAddr[i].sin_port));
+		shared_ptr<client> client_ptr;
+		client_ptr = make_shared<client>(connfd, inet_ntoa(clientAddr[i].sin_addr), ntohs(clientAddr[i].sin_port));
 		client_ptr->setRetval();
-		clientList.push_back(*client_ptr);
+		clientList.push_back(client_ptr);
 
 
 		if(pthread_create(&thread_id , NULL , createNewThread ,(void *)newsock)) {
