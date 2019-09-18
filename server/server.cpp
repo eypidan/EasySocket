@@ -1,6 +1,6 @@
 /*
 	statusCode:
-	666 -> hello
+	666 -> sucess code
 	200 -> get time
 	201 -> get name
 	203 -> get client list
@@ -21,6 +21,8 @@
 #include <pthread.h> 
 #include <vector>
 #include <string>
+#include <time.h>
+#include <limits.h>
 
 #define SERVER_PORT	5750 //listen port
 #define CLIENT_NUM 100
@@ -152,23 +154,71 @@ int main() {
 
 void *createNewThread(void *socketfd){
 	int ret;
-	int *socketid_ptr = (int *)socketfd;
 	void *ptr;
-	int socketid = *socketid_ptr;
-	struct dataPacket helloPac;
-	helloPac.statusCode = 666;
-	strcpy(helloPac.content,"Hello! We are connected!");
+	int socketid = *(int *)socketfd;
+	struct dataPacket dataSendToClient,dataGetFromClient;
+	dataSendToClient.statusCode = 666;
+	strcpy(dataSendToClient.content,"Hello! We are connected!");
 
 	printf("New thread is created\n");	
 	printf("Socketid is %d\n",socketid);
-	if(send(socketid , &helloPac , sizeof(dataPacket) , 0) == -1) {
+	if(send(socketid , &dataSendToClient , sizeof(dataPacket) , 0) == -1) {
 		printf("send() failed!\n");
 		close(socketid);
 		exit(-1);
 	}
+
+	//start to recv packet from client
+	while(1){
+		int nLeft = sizeof(dataPacket);
+		
+		ptr = &dataGetFromClient;
+		while(nLeft >0)	{
+			//接收数据：
+			ret = recv(socketid, ptr, nLeft, 0);
+			//printf("debug,if not recv hang you will see me\n");
+			if(ret <= 0) {
+				printf("this thread recv() failed!\n");
+				close(socketid);
+				pthread_exit(NULL);
+			}
+			nLeft -= ret;
+			ptr = (char *)ptr + ret;
+			//printf("degbug :nLeft %d\n",nLeft);
+		}
+		switch(dataGetFromClient.statusCode){
+			case 200:{
+				time_t t = time(NULL);
+				struct tm tm = *localtime(&t);
+				sprintf(dataSendToClient.content,"now: %d-%d-%d %d:%d:%d", tm.tm_year + 1900, tm.tm_mon + 1,tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+				dataSendToClient.statusCode = 666;
+				// dataSendToClient.content
+			}
+			break;
+			case 201:{
+				char hostname[HOST_NAME_MAX];
+				gethostname(hostname, HOST_NAME_MAX);
+				sprintf(dataSendToClient.content,"i am %s\n",hostname);
+				dataSendToClient.statusCode = 666;
+				
+			}
+			break;
+			default:{
+				printf("bad request");
+				sprintf(dataSendToClient.content,"bad request");
+				dataSendToClient.statusCode = 403;
+				
+			}
+			break;
+		}
+		if(send(socketid, &dataSendToClient,sizeof(dataPacket),0) == -1){
+			printf("send() failed!\n");
+			close(socketid);
+			exit(-1);
+		}
+		printf("debug:%s\n",dataSendToClient.content);
+	}
 	
-	
-	//close(socketid);	
 }
 
 void sendClientList(int socketid){

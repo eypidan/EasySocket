@@ -1,6 +1,6 @@
 /*
 	statusCode:
-	666 -> hello
+	666 -> sucess code
 	200 -> get time
 	201 -> get name
 	203 -> get client list
@@ -43,8 +43,8 @@ struct msg_st {
 };
 
 void *recvInfoThread(void *sockid);
-void *sendTimeReq(void *sockid);
-void *sendNameReq(void *sockid);
+void sendTimeReq(void *sockid);
+void sendNameReq(void *sockid);
 
 int main() {	
 	int sockfd,funcChoose = 0;
@@ -61,15 +61,13 @@ int main() {
 		exit(1);
 	}
 	//create a socket：
-	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		printf("socket() failed! code:%d\n", errno);
-		return -1;
-	}
+	
 
 	while(1){
-		printf("Hello,please input 1-7 to use function\n");
+		getMessage = false;
+		printf("\nHello,please input 1-7 to use function\n");
 		if(connectStatus)
-			printf("2.close connect.\n3.get server time.\n4.get server name.\n5.get client list.\n6.send info to another client.\n");
+			printf("2.close connect.\n3.get server time.\n4.get server name.\n5.get client list.\n6.send info to another client.\ninput:");
 		else
 			printf("1.connect server.\n9.quit.\n");
 		
@@ -77,6 +75,10 @@ int main() {
 		//funcChoose = 1;
 		switch(funcChoose){
 			case 1:
+				if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+					printf("socket() failed! code:%d\n", errno);
+					return -1;
+				}
 				//printf("input server ip:");
 				//set server info
 				if((hptr = gethostbyname(serverIP)) == NULL){
@@ -108,6 +110,10 @@ int main() {
 				printf("connected stop\n");
 				break;
 			case 3:
+				sendTimeReq((void *)&sockfd);
+				break;
+			case 4:
+				sendNameReq((void *)&sockfd);
 				break;
 			case 9:
 				exit(0);
@@ -118,12 +124,13 @@ int main() {
 		}
 
 		//start to recv info from thread
-		sleep(1);
-		if(msgrcv(msgidRecv, (void*)&dataRecv, sizeof(msg_st)-sizeof(long int), 0, 0) == -1) {
+	
+		if(msgrcv(msgidRecv, (void*)&dataRecv, sizeof(msg_st)-sizeof(long int), 0, MSG_NOERROR) == -1) {
 			printf("msgrcv failed with errno: %d\n", errno);
 			exit(1);
 		}
-		printf("In main:%s\n%d\n",dataRecv.content,dataRecv.statusCode);
+		getMessage = true;
+		printf("In main:%s %d\n",dataRecv.content,dataRecv.statusCode);
 	}
 
 	return 0;
@@ -145,7 +152,7 @@ void *recvInfoThread(void *sockid){
 	while(connectStatus){
 		//接收客户端的数据：		
 		int nLeft = sizeof(dataPacket);
-		int sending = 1;
+
 		ptr = &dataGetFromServer;
 		while(nLeft >0)	{
 			//接收数据：
@@ -160,22 +167,42 @@ void *recvInfoThread(void *sockid){
 			ptr = (char *)ptr + ret;
 			//printf("degbug :nLeft %d\n",nLeft);
 		}
-		while(sending){
+		printf("debug in client:%s\n",dataGetFromServer.content);
+		while(1){
 			//set data
 			strcpy(dataSendToMainThread.content,dataGetFromServer.content);
 			dataSendToMainThread.statusCode = dataGetFromServer.statusCode;
 			dataSendToMainThread.msg_type = 1;
 			//send message to main thread
-			if(msgsnd(msgidSend,(void*)&dataSendToMainThread,sizeof(msg_st)-sizeof(long int),0) == -1){
+			if((msgsnd(msgidSend,(void*)&dataSendToMainThread,sizeof(msg_st)-sizeof(long int),0)) == -1){
 				printf("msgsnd failed!\n");
 				exit(1);
 			}
-			if(getMessage == true) sending = 0;
+			if(getMessage == true) break;
 		}
 	}
 }
 
-void *sendTimeReq(void *sockid){
-	
+void sendTimeReq(void *sockid){
+	int sofd = *(int *)sockid;
+	dataPacket sendToServer;
+	sendToServer.statusCode = 200;
+	strcpy(sendToServer.content,"i want server time.");
+	if(send(sofd, &sendToServer,sizeof(dataPacket),0) == -1){
+		printf("send() failed!\n");
+		close(sofd);
+		exit(-1);
+	}
 }
-void *sendNameReq(void *sockid)
+
+void sendNameReq(void *sockid){
+	int sofd = *(int *)sockid;
+	dataPacket sendToServer;
+	sendToServer.statusCode = 201;
+	strcpy(sendToServer.content,"i want server name.");
+	if(send(sofd, &sendToServer,sizeof(dataPacket),0) == -1){
+		printf("send() failed!\n");
+		close(sofd);
+		exit(-1);
+	}
+}
