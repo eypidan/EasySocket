@@ -46,7 +46,7 @@ struct msg_st {
 void *recvInfoThread(void *sockid);
 void sendTimeReq(void *sockid);
 void sendNameReq(void *sockid);
-
+void sendClientListReq(void *sockid);
 int main() {	
 	
 	
@@ -76,7 +76,7 @@ int main() {
 		
 		std::cin >> funcChoose;
 		//funcChoose = 1;
-		switch(funcChoose){
+		switch(funcChoose) {
 			case 1:
 				if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 					printf("socket() failed! code:%d\n", errno);
@@ -107,17 +107,24 @@ int main() {
 					return -1;
 				}
 				break;
+
 			case 2:
+				pthread_cancel(threadid);
 				close(sockfd);
 				connectStatus = false;
 				printf("connected stop\n");
 				break;
+
 			case 3:
 				sendTimeReq((void *)&sockfd);
 				break;
+
 			case 4:
 				sendNameReq((void *)&sockfd);
 				break;
+
+			case 5:
+				sendClientListReq((void *)&sockfd);
 			case 9:
 				exit(0);
 				break;
@@ -127,12 +134,14 @@ int main() {
 		}
 
 		//start to recv info from thread
-
-		if(msgrcv(msgidRecv, (void*)&dataRecv, sizeof(msg_st)-sizeof(long int), 1, 0) == -1) {
-			printf("msgrcv failed with errno: %d\n", errno);
-			exit(1);
+		if(connectStatus == true){
+			if(msgrcv(msgidRecv, (void*)&dataRecv, sizeof(msg_st)-sizeof(long int), 1, 0) == -1) {
+				printf("msgrcv failed with errno: %d\n", errno);
+				exit(1);
+			}
+			printf("In MainThread:%s %d\n" , dataRecv.content , dataRecv.statusCode);
 		}
-		printf("In MainThread:%s %d\n" , dataRecv.content , dataRecv.statusCode);
+		
 		printf("input 'c' to Continue");
 		char q = 'a';
 		while(q !='c')
@@ -174,8 +183,6 @@ void *recvInfoThread(void *sockid){
 			ptr = (char *)ptr + ret;
 		}
 
-		// while(running){
-			//set data
 		strcpy(dataSendToMainThread.content,dataGetFromServer.content);
 		dataSendToMainThread.statusCode = dataGetFromServer.statusCode;
 		dataSendToMainThread.msg_type = 1;
@@ -184,12 +191,6 @@ void *recvInfoThread(void *sockid){
 			printf("msgsnd failed!\n");
 			exit(1);
 		}
-		// 	if(getMessage == true)	{
-		// 		printf("\nrecv from server:%s\n",dataGetFromServer.content);
-		// 		printf("\nsendtoMain:%s\n",dataSendToMainThread.content);
-		// 		running = 0;
-		// 	}
-		// }
 	}
 }
 
@@ -210,6 +211,18 @@ void sendNameReq(void *sockid){
 	dataPacket sendToServer;
 	sendToServer.statusCode = 201;
 	strcpy(sendToServer.content,"i want server name.");
+	if(send(sofd, &sendToServer,sizeof(dataPacket),0) == -1){
+		printf("send() failed!\n");
+		close(sofd);
+		exit(-1);
+	}
+}
+
+void sendClientListReq(void *sockid){
+	int sofd = *(int *)sockid;
+	dataPacket sendToServer;
+	sendToServer.statusCode = 203;
+	strcpy(sendToServer.content,"i want your client list.");
 	if(send(sofd, &sendToServer,sizeof(dataPacket),0) == -1){
 		printf("send() failed!\n");
 		close(sofd);

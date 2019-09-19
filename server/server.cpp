@@ -52,39 +52,12 @@ public:
 	~client(){
 		close(fd);
 	}
-
-	void setRetval(){
-		len = sizeof (error);
-		retval = getsockopt (fd, SOL_SOCKET, SO_ERROR, &error, &len);
-	}
-
-	bool getStatus(){
-		if (retval != 0) {
-			/* there was a problem getting the error code */
-			fprintf(stderr, "error getting socket error code: %s\n", strerror(retval));
-			return false;
-		}
-
-		if (error != 0) {
-			/* socket has a non zero error status */
-			fprintf(stderr, "socket error: %s\n", strerror(error));
-			return false;
-		}
-		return true;
-	}
-
-private:
-//three varible for check sokcet status
-	socklen_t len;
-	int error = 0;
-	int retval;
-
 };
 
 //thread function to create a new thread accept next request
 void *createNewThread(void *vargp);
 void sendClientList(int socketid);
-
+void deleteClient(int socketid);
 
 vector<shared_ptr<client>> clientList;
 
@@ -135,7 +108,6 @@ int main() {
 		printf("Accepted client: %s:%d\n", inet_ntoa(clientAddr[i].sin_addr), ntohs(clientAddr[i].sin_port));
 		shared_ptr<client> client_ptr;
 		client_ptr = make_shared<client>(connfd, inet_ntoa(clientAddr[i].sin_addr), ntohs(clientAddr[i].sin_port));
-		client_ptr->setRetval();
 		clientList.push_back(client_ptr);
 
 
@@ -163,7 +135,7 @@ void *createNewThread(void *socketfd){
 	printf("Socketid is %d\n",socketid);
 	if(send(socketid , &dataSendToClient , sizeof(dataPacket) , 0) == -1) {
 		printf("In phtread send() failed!\n");
-		close(socketid);
+		deleteClient(socketid);
 		pthread_exit(NULL);
 	}
 
@@ -178,7 +150,7 @@ void *createNewThread(void *socketfd){
 			//printf("debug,if not recv hang you will see me\n");
 			if(ret <= 0) {
 				printf("this thread recv() failed!\n");
-				close(socketid);
+				deleteClient(socketid);
 				pthread_exit(NULL);
 			}
 			nLeft -= ret;
@@ -186,6 +158,7 @@ void *createNewThread(void *socketfd){
 			//printf("degbug :nLeft %d\n",nLeft);
 		}
 		switch(dataGetFromClient.statusCode){
+			//classify the req according to statusCode
 			case 200:{
 				time_t t = time(NULL);
 				struct tm tm = *localtime(&t);
@@ -194,6 +167,7 @@ void *createNewThread(void *socketfd){
 				// dataSendToClient.content
 			}
 			break;
+
 			case 201:{
 				char hostname[HOST_NAME_MAX];
 				gethostname(hostname, HOST_NAME_MAX);
@@ -202,17 +176,22 @@ void *createNewThread(void *socketfd){
 				
 			}
 			break;
+
+			case 203:{
+				dataSendToClient.statusCode = 666;
+			}
+			break;
+
 			default:{
 				printf("bad request");
 				sprintf(dataSendToClient.content,"bad request");
 				dataSendToClient.statusCode = 403;
-				
 			}
 			break;
 		}
 		if(send(socketid, &dataSendToClient,sizeof(dataPacket),0) == -1){
 			printf("in pthread send() failed!\n");
-			close(socketid);
+			deleteClient(socketid);
 			pthread_exit(NULL);
 		}
 		printf("debug:%s\n",dataSendToClient.content);
@@ -220,7 +199,20 @@ void *createNewThread(void *socketfd){
 	
 }
 
+void deleteClient(int socketid){
+	close(socketid);
+	vector<shared_ptr<client>>::iterator iter;
+	for(iter = clientList.begin(); iter != clientList.end(); ++iter){
+		printf("fd:%d,ip:%s,port:%d\n",(*iter)->fd,(*iter)->ip,(*iter)->port);
+		if((*iter)->fd == socketid){
+			printf("get it,delete it\n");
+			clientList.erase(iter);
+			break;
+		}
+	}
+}
+
 void sendClientList(int socketid){
-	
+	;	
 }
 
