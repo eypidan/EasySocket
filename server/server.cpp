@@ -58,6 +58,7 @@ public:
 void *createNewThread(void *vargp);
 void sendClientList(int socketid);
 void deleteClient(int socketid);
+void getClientList2Packet(char *pacAddr);
 
 vector<shared_ptr<client>> clientList;
 
@@ -178,6 +179,7 @@ void *createNewThread(void *socketfd){
 			break;
 
 			case 203:{
+				getClientList2Packet(dataSendToClient.content);
 				dataSendToClient.statusCode = 666;
 			}
 			break;
@@ -203,7 +205,7 @@ void deleteClient(int socketid){
 	close(socketid);
 	vector<shared_ptr<client>>::iterator iter;
 	for(iter = clientList.begin(); iter != clientList.end(); ++iter){
-		printf("fd:%d,ip:%s,port:%d\n",(*iter)->fd,(*iter)->ip,(*iter)->port);
+		
 		if((*iter)->fd == socketid){
 			printf("get it,delete it\n");
 			clientList.erase(iter);
@@ -212,7 +214,14 @@ void deleteClient(int socketid){
 	}
 }
 
-void sendClientList(int socketid){
-	;	
+void getClientList2Packet(char *pacAddr){
+
+	vector<shared_ptr<client>>::iterator iter;
+	for(iter = clientList.begin(); iter != clientList.end(); ++iter){
+		sprintf(pacAddr,"fd:%d,ip:%s,port:%d\n",(*iter)->fd,(*iter)->ip,(*iter)->port);
+		int x = strlen(pacAddr);
+		pacAddr += x;
+	}
+
 }
 

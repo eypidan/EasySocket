@@ -55,7 +55,7 @@ int main() {
 	struct sockaddr_in serverAddr;
 	struct hostent *hptr;  
 	struct msg_st dataRecv;
-	char serverIP[20] = "127.0.0.1";
+	char serverIP[20] = "10.79.25.117 ";
     char message[100] , timeMessage[100] , nameMessage[100];
 	//create message queue
 	msgidRecv = msgget((key_t)QUEUEKEY, 0666 | IPC_CREAT);
@@ -125,6 +125,7 @@ int main() {
 
 			case 5:
 				sendClientListReq((void *)&sockfd);
+				break;
 			case 9:
 				exit(0);
 				break;
@@ -139,7 +140,7 @@ int main() {
 				printf("msgrcv failed with errno: %d\n", errno);
 				exit(1);
 			}
-			printf("In MainThread:%s %d\n" , dataRecv.content , dataRecv.statusCode);
+			printf("In MainThread:\n%s %d\n" , dataRecv.content , dataRecv.statusCode);
 		}
 		
 		printf("input 'c' to Continue");
