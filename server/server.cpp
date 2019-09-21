@@ -4,7 +4,9 @@
 	200 -> get time
 	201 -> get name
 	203 -> get client list
+	204 -> send info to another client
 	403 -> bad request
+	10086 -> packet from another server
 */
 //a easy socket sever
 #include <stdio.h>
@@ -22,19 +24,25 @@
 #include <vector>
 #include <string>
 #include <time.h>
+#include <signal.h>
 #include <limits.h>
 #include <memory>
 #define SERVER_PORT	5750 //listen port
 #define CLIENT_NUM 100
 #define BUFFERSIZE 2000
+#define QUEUEKEY 9999
 using namespace std;
+
 extern int errno;
+
+int listenfd;
 
 //data packet
 struct dataPacket{
 	char content[BUFFERSIZE];
 	int statusCode;
 };
+
 
 //client list struct
 class client{
@@ -59,15 +67,22 @@ void *createNewThread(void *vargp);
 void sendClientList(int socketid);
 void deleteClient(int socketid);
 void getClientList2Packet(char *pacAddr);
+void my_handler(int s);
 
 vector<shared_ptr<client>> clientList;
 
 int main() {	
 
-	int listenfd, connfd, i, *newsock;
+	int connfd, i, *newsock;
 	int iClientSize;
 	struct sockaddr_in serverAddr;
 	struct sockaddr_in  clientAddr[CLIENT_NUM];
+	//create a signale struct to catch ctrl+C stop signal
+	struct sigaction sigIntHandler;
+	sigIntHandler.sa_handler = my_handler;
+	sigemptyset(&sigIntHandler.sa_mask);
+	sigIntHandler.sa_flags = 0;
+	sigaction(SIGINT,&sigIntHandler,NULL);
 	//create a socket:
 	if((listenfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		printf("socket() failed! code:%d\n", errno);
@@ -91,7 +106,8 @@ int main() {
 		close(listenfd);
 		return -1;
 	}
-		
+	
+
 	printf("Waiting for client connecting!\n");
 	printf("tips : Ctrl+c to quit!\n");
 	iClientSize = sizeof(struct sockaddr_in);
@@ -128,9 +144,11 @@ void *createNewThread(void *socketfd){
 	int ret;
 	void *ptr;
 	int socketid = *(int *)socketfd;
+	int socketTarget;
 	struct dataPacket dataSendToClient,dataGetFromClient;
+
 	dataSendToClient.statusCode = 666;
-	strcpy(dataSendToClient.content,"Hello! We are connected!");
+	sprintf(dataSendToClient.content,"Hello! We are connected!Your fd is %d",socketid);
 
 	printf("New thread is created\n");	
 	printf("Socketid is %d\n",socketid);
@@ -140,10 +158,11 @@ void *createNewThread(void *socketfd){
 		pthread_exit(NULL);
 	}
 
+
 	//start to recv packet from client
 	while(1){
+		socketTarget = socketid;
 		int nLeft = sizeof(dataPacket);
-		
 		ptr = &dataGetFromClient;
 		while(nLeft >0)	{
 			//接收数据：
@@ -174,13 +193,24 @@ void *createNewThread(void *socketfd){
 				gethostname(hostname, HOST_NAME_MAX);
 				sprintf(dataSendToClient.content,"i am %s\n",hostname);
 				dataSendToClient.statusCode = 666;
-				
 			}
 			break;
 
 			case 203:{
 				getClientList2Packet(dataSendToClient.content);
 				dataSendToClient.statusCode = 666;
+			}
+			break;
+			
+			case 204:{
+				int targetClientFd = 0;
+				for(int a = 0; a<4 ;a++)
+					targetClientFd = 256 * targetClientFd + dataGetFromClient.content[a];
+				
+				printf("debug:target fd :%d\n",targetClientFd);			
+				socketTarget = targetClientFd;
+				strcpy(dataSendToClient.content,dataGetFromClient.content+4);
+				dataSendToClient.statusCode = 10086;
 			}
 			break;
 
@@ -191,7 +221,7 @@ void *createNewThread(void *socketfd){
 			}
 			break;
 		}
-		if(send(socketid, &dataSendToClient,sizeof(dataPacket),0) == -1){
+		if(send(socketTarget, &dataSendToClient,sizeof(dataPacket),0) == -1){
 			printf("in pthread send() failed!\n");
 			deleteClient(socketid);
 			pthread_exit(NULL);
@@ -225,3 +255,13 @@ void getClientList2Packet(char *pacAddr){
 
 }
 
+void my_handler(int s){
+	
+	vector<shared_ptr<client>>::iterator iter;
+	for(iter = clientList.begin(); iter != clientList.end(); ++iter)
+		close((*iter)->fd);
+	
+	close(listenfd);
+	printf("Caught signale %d, all socket connections are stopped.\n",s);
+	exit(0);
+}

@@ -4,9 +4,9 @@
 	200 -> get time
 	201 -> get name
 	203 -> get client list
+	204 -> send info to another client
 	403 -> bad request
-
-	message queue key => 8888
+	10086 -> packet from another server
 */
 #include <iostream>
 #include <stdio.h>
@@ -30,6 +30,8 @@
 extern int errno;
 bool connectStatus = false;
 bool getMessage = false;
+bool jump = false;
+int targetfd;
 pthread_t threadid;
 
 struct dataPacket{
@@ -47,6 +49,8 @@ void *recvInfoThread(void *sockid);
 void sendTimeReq(void *sockid);
 void sendNameReq(void *sockid);
 void sendClientListReq(void *sockid);
+void sendInfoToAnotherClient(void *sockid);
+
 int main() {	
 	
 	
@@ -55,7 +59,7 @@ int main() {
 	struct sockaddr_in serverAddr;
 	struct hostent *hptr;  
 	struct msg_st dataRecv;
-	char serverIP[20] = "10.79.25.117 ";
+	char serverIP[20] = "127.0.0.1";
     char message[100] , timeMessage[100] , nameMessage[100];
 	//create message queue
 	msgidRecv = msgget((key_t)QUEUEKEY, 0666 | IPC_CREAT);
@@ -67,6 +71,7 @@ int main() {
 	// msgctl(msgidRecv, IPC_RMID, NULL);
 
 	while(1){
+		jump = false;
 		getMessage = false;
 		printf("\nHello,please input 1-7 to use function\n");
 		if(connectStatus)
@@ -126,21 +131,28 @@ int main() {
 			case 5:
 				sendClientListReq((void *)&sockfd);
 				break;
+			case 6:
+				printf("The target client's fd is:");
+				scanf("%d",&targetfd);
+				sendInfoToAnotherClient((void *)&sockfd);
+				jump = true;
+				break;
 			case 9:
 				exit(0);
 				break;
 			default:
 				printf("Bad input!\n");
+				jump = true;
 				break;
 		}
 
 		//start to recv info from thread
-		if(connectStatus == true){
+		if(connectStatus == true && jump == false){
 			if(msgrcv(msgidRecv, (void*)&dataRecv, sizeof(msg_st)-sizeof(long int), 1, 0) == -1) {
 				printf("msgrcv failed with errno: %d\n", errno);
 				exit(1);
 			}
-			printf("In MainThread:\n%s %d\n" , dataRecv.content , dataRecv.statusCode);
+			printf("In MainThread:\n%s\n" , dataRecv.content);
 		}
 		
 		printf("input 'c' to Continue");
@@ -168,7 +180,7 @@ void *recvInfoThread(void *sockid){
 		exit(1);
 	}
 	while(connectStatus){
-		//int running = 1;
+		//printf("->->->\n");
 		//接收客户端的数据：		
 		int nLeft = sizeof(dataPacket);
 		ptr = &dataGetFromServer;
@@ -180,13 +192,18 @@ void *recvInfoThread(void *sockid){
 				close(sofd);
 				exit(-1);
 			}
+			
 			nLeft -= ret;
 			ptr = (char *)ptr + ret;
 		}
-
+		if(dataGetFromServer.statusCode == 10086){
+			printf("\nMessage From another client:%s\ninput 'c' to Continue\n",dataGetFromServer.content);
+			continue;
+		}
 		strcpy(dataSendToMainThread.content,dataGetFromServer.content);
 		dataSendToMainThread.statusCode = dataGetFromServer.statusCode;
 		dataSendToMainThread.msg_type = 1;
+		
 		//send message to main thread
 		if((msgsnd(msgidSend,(void*)&dataSendToMainThread,sizeof(msg_st)-sizeof(long int),0)) == -1){
 			printf("msgsnd failed!\n");
@@ -224,6 +241,33 @@ void sendClientListReq(void *sockid){
 	dataPacket sendToServer;
 	sendToServer.statusCode = 203;
 	strcpy(sendToServer.content,"i want your client list.");
+	if(send(sofd, &sendToServer,sizeof(dataPacket),0) == -1){
+		printf("send() failed!\n");
+		close(sofd);
+		exit(-1);
+	}
+}
+
+void sendInfoToAnotherClient(void *sockid){
+	int sofd = *(int *)sockid;
+	dataPacket sendToServer;
+	//convert number into buffer
+	sendToServer.content[0] = targetfd >> 24;
+	sendToServer.content[1] = targetfd >> 16;
+	sendToServer.content[2] = targetfd >> 8;
+	sendToServer.content[3] = targetfd;
+
+	sendToServer.statusCode = 204;
+	printf("PLease input your content:(input ~ to stop input)");
+	char x;
+	int i = 0;
+	while((x=getchar()) !='~'){
+		sendToServer.content[4+i] = x; 
+		i++;
+	}
+	sendToServer.content[4+i] = '\0';
+	
+
 	if(send(sofd, &sendToServer,sizeof(dataPacket),0) == -1){
 		printf("send() failed!\n");
 		close(sofd);
