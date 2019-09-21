@@ -7,6 +7,9 @@
 ### Feature
 
 - Multiple thread running, send and receive data  asynchronously
+- Client can send message to other clients through server
+- Client can get client List from server
+
 
 ### Build & Run
 ```shell
