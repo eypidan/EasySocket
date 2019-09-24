@@ -59,7 +59,7 @@ int main() {
 	struct sockaddr_in serverAddr;
 	struct hostent *hptr;  
 	struct msg_st dataRecv;
-	char serverIP[20] = "127.0.0.1";
+	char serverIP[20];
     char message[100] , timeMessage[100] , nameMessage[100];
 	//create message queue
 	msgidRecv = msgget((key_t)QUEUEKEY, 0666 | IPC_CREAT);
@@ -87,7 +87,8 @@ int main() {
 					printf("socket() failed! code:%d\n", errno);
 					return -1;
 				}
-				//printf("input server ip:");
+				printf("input server ip:");
+				scanf("%s",serverIP);
 				//set server info
 				if((hptr = gethostbyname(serverIP)) == NULL){
 					printf("Geting error in gethostbyname func!\n");
