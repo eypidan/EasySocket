@@ -75,9 +75,9 @@ int main() {
 		getMessage = false;
 		printf("\nHello,please input 1-7 to use function\n");
 		if(connectStatus)
-			printf("2.close connect.\n3.get server time.\n4.get server name.\n5.get client list.\n6.send info to another client.\ninput:");
+			printf("connectStatus(Connected)\n2.close connect.\n3.get server time.\n4.get server name.\n5.get client list.\n6.send info to another client.\ninput:");
 		else
-			printf("1.connect server.\n9.quit.\n");
+			printf("connectStatus(Not Connected)\n1.connect server.\n9.quit.\n");
 		
 		std::cin >> funcChoose;
 		//funcChoose = 1;
