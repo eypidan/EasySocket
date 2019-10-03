@@ -32,6 +32,7 @@ bool connectStatus = false;
 bool getMessage = false;
 bool jump = false;
 int targetfd;
+int numberOfPackFromServer = 0;
 pthread_t threadid;
 
 struct dataPacket{
@@ -68,14 +69,15 @@ int main() {
 		exit(1);
 	}
 	//clean the former message queue
-	// msgctl(msgidRecv, IPC_RMID, NULL);
+	msgctl(msgidRecv, IPC_RMID, NULL);
+	msgidRecv = msgget((key_t)QUEUEKEY, 0666 | IPC_CREAT);
 
 	while(1){
 		jump = false;
 		getMessage = false;
 		printf("\nHello,please input 1-7 to use function\n");
 		if(connectStatus)
-			printf("connectStatus(Connected)\n2.close connect.\n3.get server time.\n4.get server name.\n5.get client list.\n6.send info to another client.\ninput:");
+			printf("connectStatus(Connected)\n2.close connect.\n3.get server time.\n4.get server name.\n5.get client list.\n6.send info to another client.\n7.100 times request(for report)\ninput:");
 		else
 			printf("connectStatus(Not Connected)\n1.connect server.\n9.quit.\n");
 		
@@ -138,6 +140,10 @@ int main() {
 				sendInfoToAnotherClient((void *)&sockfd);
 				jump = true;
 				break;
+			case 7:
+				for(int q = 0;q<100;q++)
+					sendTimeReq((void *)&sockfd);
+				break;
 			case 9:
 				exit(0);
 				break;
@@ -161,6 +167,9 @@ int main() {
 		while(q !='c')
 			scanf("%c",&q);
 		
+		//msgctl(msgidRecv, IPC_RMID, NULL);
+		printf("Get Package from server Number is : %d \n",numberOfPackFromServer);
+		numberOfPackFromServer = 0;
 	}
 
 	return 0;
@@ -180,13 +189,14 @@ void *recvInfoThread(void *sockid){
 		printf("msgget failed with error: %d\n", errno);
 		exit(1);
 	}
+	
 	while(connectStatus){
 		//printf("->->->\n");
-		//接收客户端的数据：		
+		//receivce message from server:		
 		int nLeft = sizeof(dataPacket);
 		ptr = &dataGetFromServer;
 		while(nLeft >0)	{
-			//接收数据：
+			//printf("1debug:nLeft:%d\n",nLeft);
 			ret = recv(sofd, ptr, nLeft, 0);
 			if(ret <= 0) {
 				printf("recv() failed!\n");
@@ -196,6 +206,7 @@ void *recvInfoThread(void *sockid){
 			
 			nLeft -= ret;
 			ptr = (char *)ptr + ret;
+			//printf("2debug:nLeft:%d\n",nLeft);
 		}
 		if(dataGetFromServer.statusCode == 10086){
 			printf("\nMessage From another client:%s\ninput 'c' to Continue\n",dataGetFromServer.content);
@@ -204,12 +215,14 @@ void *recvInfoThread(void *sockid){
 		strcpy(dataSendToMainThread.content,dataGetFromServer.content);
 		dataSendToMainThread.statusCode = dataGetFromServer.statusCode;
 		dataSendToMainThread.msg_type = 1;
-		
+		//printf("3debug:nLeft:%d\n",nLeft);
 		//send message to main thread
 		if((msgsnd(msgidSend,(void*)&dataSendToMainThread,sizeof(msg_st)-sizeof(long int),0)) == -1){
 			printf("msgsnd failed!\n");
 			exit(1);
 		}
+		numberOfPackFromServer++;
+		//printf("lalal:%d\n",numberOfPackFromServer);
 	}
 }
 

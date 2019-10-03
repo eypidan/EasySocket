@@ -36,7 +36,7 @@ using namespace std;
 extern int errno;
 
 int listenfd;
-
+int numberOfResponse = 0;
 //data packet
 struct dataPacket{
 	char content[BUFFERSIZE];
@@ -177,6 +177,7 @@ void *createNewThread(void *socketfd){
 			ptr = (char *)ptr + ret;
 			//printf("degbug :nLeft %d\n",nLeft);
 		}
+		
 		switch(dataGetFromClient.statusCode){
 			//classify the req according to statusCode
 			case 200:{
@@ -226,7 +227,9 @@ void *createNewThread(void *socketfd){
 			deleteClient(socketid);
 			pthread_exit(NULL);
 		}
+		numberOfResponse++;
 		printf("debug:%s\n",dataSendToClient.content);
+		printf("debug:number Of Response package is %d\n",numberOfResponse);
 	}
 	
 }
